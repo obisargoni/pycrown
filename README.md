@@ -14,12 +14,12 @@ This fork of pycrown updates the packs to run with the most recent versions of p
 
 Python 3.10.10
 
-laspy           2.4.1
-numpy           1.23.5
-pandas          1.5.3
-geopandas       0.12.2
-GDAL            3.6.3
-rasterio        1.3.6
+* laspy           2.4.1
+* numpy           1.23.5
+* pandas          1.5.3
+* geopandas       0.12.2
+* GDAL            3.6.3
+* rasterio        1.3.6
 
 # Summary
 PyCrown is a Python package for identifying tree top positions in a canopy height model (CHM) and delineating individual tree crowns.
