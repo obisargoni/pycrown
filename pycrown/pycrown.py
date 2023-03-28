@@ -18,7 +18,7 @@ import pandas as pd
 import geopandas as gpd
 
 import scipy.ndimage as ndimage
-import scipy.ndimage.filters as filters
+from scipy.ndimage import median_filter, maximum_filter
 from scipy.spatial.distance import cdist
 
 from skimage.segmentation import watershed
@@ -410,8 +410,7 @@ class PyCrown:
         ndarray
             smoothed raster
         """
-        return filters.median_filter(
-            raster, footprint=self._get_kernel(ws, circular=circular))
+        return median_filter(raster, footprint=self._get_kernel(ws, circular=circular))
 
     def clip_data_to_bbox(self, bbox, las_offset=10):
         """Clip input data to subset region based on bounding box
@@ -537,8 +536,9 @@ class PyCrown:
                 ws = int(ws / resolution)
 
         # Maximum filter to find local peaks
-        raster_maximum = filters.maximum_filter(
-            raster, footprint=self._get_kernel(ws, circular=True))
+        raster_maximum = maximum_filter(
+            raster, footprint=self._get_kernel(ws, circular=True)
+        )
         tree_maxima = raster == raster_maximum
 
         # alternative using skimage peak_local_max
