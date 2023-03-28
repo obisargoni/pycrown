@@ -23,6 +23,7 @@ from scipy.spatial.distance import cdist
 
 from skimage.morphology import watershed
 from skimage.filters import threshold_otsu
+
 # from skimage.feature import peak_local_max
 
 import gdal
@@ -45,21 +46,22 @@ from pycrown import _crown_dalponte_numba
 from pycrown import _crown_dalponteCIRC_numba
 
 gdal.UseExceptions()
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 
 class NoTreesException(Exception):
-    """ Raised when no tree detected """
+    """Raised when no tree detected"""
+
     pass
 
 
 class GDALFileNotFoundException(Exception):
-    """ Raised when GDAL file not found """
+    """Raised when GDAL file not found"""
+
     pass
 
 
 class PyCrown:
-
     __author__ = "Dr. Jan Zörner"
     __copyright__ = "Copyright 2018, Jan Zörner"
     __credits__ = ["Jan Zörner", "John Dymond", "James Shepherd", "Ben Jolly"]
@@ -69,9 +71,10 @@ class PyCrown:
     __email__ = "zoernerj@landcareresearch.co.nz"
     __status__ = "Development"
 
-    def __init__(self, chm_file, dtm_file, dsm_file, las_file=None,
-                 outpath=None, suffix=None):
-        """ PyCrown class
+    def __init__(
+        self, chm_file, dtm_file, dsm_file, las_file=None, outpath=None, suffix=None
+    ):
+        """PyCrown class
 
         Parameters
         ----------
@@ -110,9 +113,9 @@ class PyCrown:
         PC.export_tree_crowns(crowntype='crown_poly_smooth')
         """
 
-        suffix = f'_{suffix}' if suffix else ''
+        suffix = f"_{suffix}" if suffix else ""
 
-        self.outpath = Path(outpath) if outpath else Path('./')
+        self.outpath = Path(outpath) if outpath else Path("./")
 
         # Load the CHM
         self.chm_file = Path(chm_file)
@@ -121,7 +124,7 @@ class PyCrown:
         except RuntimeError as e:
             raise IOError(e)
         proj = osr.SpatialReference(wkt=chm_gdal.GetProjection())
-        self.epsg = int(proj.GetAttrValue('AUTHORITY', 1))
+        self.epsg = int(proj.GetAttrValue("AUTHORITY", 1))
         self.srs = from_epsg(self.epsg)
         self.geotransform = chm_gdal.GetGeoTransform()
         self.resolution = abs(self.geotransform[-1])
@@ -129,7 +132,6 @@ class PyCrown:
         self.ul_lat = chm_gdal.GetGeoTransform()[3]
         self.chm0 = chm_gdal.GetRasterBand(1).ReadAsArray()
         chm_gdal = None
-
 
         # Load the DTM
         try:
@@ -160,27 +162,36 @@ class PyCrown:
         self.tree_markers = None
         self.tt_corrected = None
 
-        self.trees = pd.DataFrame(columns=[
-            'top_height', 'top_elevation',
-            'top_cor_height', 'top_cor_elevation',
-            'crown_poly_raster', 'crown_poly_smooth',
-            'top_cor', 'top', 'tt_corrected'
-        ])
+        self.trees = pd.DataFrame(
+            columns=[
+                "top_height",
+                "top_elevation",
+                "top_cor_height",
+                "top_cor_elevation",
+                "crown_poly_raster",
+                "crown_poly_smooth",
+                "top_cor",
+                "top",
+                "tt_corrected",
+            ]
+        )
 
-        self.trees = self.trees.astype(dtype={
-            'top_height': 'float',
-            'top_elevation': 'float',
-            'top_cor_height': 'float',
-            'top_cor_elevation': 'float',
-            'crown_poly_raster': 'object',
-            'crown_poly_smooth': 'object',
-            'top_cor': 'object',
-            'top': 'object',
-            'tt_corrected': 'int'
-        })
+        self.trees = self.trees.astype(
+            dtype={
+                "top_height": "float",
+                "top_elevation": "float",
+                "top_cor_height": "float",
+                "top_cor_elevation": "float",
+                "crown_poly_raster": "object",
+                "crown_poly_smooth": "object",
+                "top_cor": "object",
+                "top": "object",
+                "tt_corrected": "int",
+            }
+        )
 
     def _load_lidar_points_cloud(self, fname):
-        """ Loads LiDAR dataset
+        """Loads LiDAR dataset
 
         Parameters
         ----------
@@ -197,7 +208,7 @@ class PyCrown:
         las.close()
 
     def _check_empty(self):
-        """ Helper function raising an Exception if no trees present
+        """Helper function raising an Exception if no trees present
 
         Raises
         ------
@@ -208,7 +219,7 @@ class PyCrown:
             raise NoTreesException
 
     def _to_lonlat(self, pix_x, pix_y, resolution):
-        ''' Convert pixel coordinates to longitude/latitude
+        """Convert pixel coordinates to longitude/latitude
 
         Parameters
         ----------
@@ -223,13 +234,13 @@ class PyCrown:
         -------
         tuple
             longitude(s), latitude(s)
-        '''
+        """
         lon = self.ul_lon + (pix_x * resolution)
         lat = self.ul_lat - (pix_y * resolution)
         return lon, lat
 
     def _to_colrow(self, lon, lat, resolution):
-        ''' Convert longitude/latitude to pixel coordinates
+        """Convert longitude/latitude to pixel coordinates
         returns either tuple of floats or 2xn ndarray
 
         Parameters
@@ -248,7 +259,7 @@ class PyCrown:
         or:
         ndarray
             Column/Row coordinate as 2xn ndarray
-        '''
+        """
         x = (lon - self.ul_lon) / resolution
         y = (self.ul_lat - lat) / resolution
         if isinstance(x, type(y)):
@@ -260,7 +271,7 @@ class PyCrown:
             raise Exception("Can't handle different input types for x, y.")
 
     def _get_z(self, lon, lat, band, resolution):
-        """ Returns data from raster band for coordinate location(s)
+        """Returns data from raster band for coordinate location(s)
 
         Parameters
         ----------
@@ -281,8 +292,8 @@ class PyCrown:
         x, y = self._to_colrow(lon, lat, resolution)
         return band[y, x]
 
-    def _tree_lonlat(self, loc='top'):
-        ''' returns longitude/latitude of tree tops
+    def _tree_lonlat(self, loc="top"):
+        """returns longitude/latitude of tree tops
 
         Parameters
         ----------
@@ -293,14 +304,13 @@ class PyCrown:
         -------
         tuple
             ndarrays of longitude(s), latitude(s) of tree tops
-        '''
+        """
         lons = np.array([tree[1][loc].x for tree in self.trees.iterrows()])
         lats = np.array([tree[1][loc].y for tree in self.trees.iterrows()])
         return lons, lats
 
-
     def _tree_colrow(self, loc, resolution):
-        """ returns column/row of tree tops
+        """returns column/row of tree tops
 
         Parameters
         ----------
@@ -314,12 +324,14 @@ class PyCrown:
         ndarray
             2xn ndarray of column(s), row(s) positions of tree tops
         """
-        return self._to_colrow(np.array([tree.x for tree in self.trees[loc]]),
-                               np.array([tree.y for tree in self.trees[loc]]),
-                               resolution).astype(np.int32)
+        return self._to_colrow(
+            np.array([tree.x for tree in self.trees[loc]]),
+            np.array([tree.y for tree in self.trees[loc]]),
+            resolution,
+        ).astype(np.int32)
 
-    def _watershed(self, inraster, th_tree=15.):
-        """ Simple implementation of a watershed tree crown delineation
+    def _watershed(self, inraster, th_tree=15.0):
+        """Simple implementation of a watershed tree crown delineation
 
         Parameters
         ----------
@@ -336,12 +348,12 @@ class PyCrown:
         inraster_mask = inraster.copy()
         inraster_mask[inraster <= th_tree] = 0
         raster = inraster.copy()
-        raster[np.isnan(raster)] = 0.
+        raster[np.isnan(raster)] = 0.0
         labels = watershed(-raster, self.tree_markers, mask=inraster_mask)
         return labels
 
     def _screen_crowns(self, cond):
-        """ Remove crowns outside tile from crowns raster and reindex
+        """Remove crowns outside tile from crowns raster and reindex
         the remaining ones
 
         Parameters
@@ -355,11 +367,11 @@ class PyCrown:
                 self.crowns[self.crowns == idx + 1] = counter
                 counter += 1
             else:
-                self.crowns[self.crowns == idx + 1] = 0.
+                self.crowns[self.crowns == idx + 1] = 0.0
 
     @staticmethod
     def _get_kernel(radius=5, circular=False):
-        """ returns a block or disc-shaped filter kernel with given radius
+        """returns a block or disc-shaped filter kernel with given radius
 
         Parameters
         ----------
@@ -374,13 +386,13 @@ class PyCrown:
             filter kernel
         """
         if circular:
-            y, x = np.ogrid[-radius:radius+1, -radius:radius+1]
+            y, x = np.ogrid[-radius : radius + 1, -radius : radius + 1]
             return x**2 + y**2 <= radius**2
         else:
             return np.ones((int(radius), int(radius)))
 
     def _smooth_raster(self, raster, ws, resolution, circular=False):
-        """ Smooth a raster with a median filter
+        """Smooth a raster with a median filter
 
         Parameters
         ----------
@@ -402,7 +414,7 @@ class PyCrown:
             raster, footprint=self._get_kernel(ws, circular=circular))
 
     def clip_data_to_bbox(self, bbox, las_offset=10):
-        """ Clip input data to subset region based on bounding box
+        """Clip input data to subset region based on bounding box
 
         Parameters
         ----------
@@ -422,32 +434,32 @@ class PyCrown:
         self.dtm = self.dtm[row_min:row_max, col_min:col_max]
         self.dsm = self.dsm[row_min:row_max, col_min:col_max]
         lasmask = (
-            (self.las.x >= lon_min - las_offset) &
-            (self.las.x <= lon_max + las_offset) &
-            (self.las.y >= lat_min - las_offset) &
-            (self.las.y <= lat_max + las_offset)
+            (self.las.x >= lon_min - las_offset)
+            & (self.las.x <= lon_max + las_offset)
+            & (self.las.y >= lat_min - las_offset)
+            & (self.las.y <= lat_max + las_offset)
         )
         self.las = self.las[lasmask]
 
         self.ul_lon = lon_min
         self.ul_lat = lat_max
 
-    def get_tree_height_elevation(self, loc='top'):
-        ''' Sets tree height and elevation in tree dataframe
+    def get_tree_height_elevation(self, loc="top"):
+        """Sets tree height and elevation in tree dataframe
 
         Parameters
         ----------
         loc :    str, optional
                  initial or corrected tree top location: `top` or `top_cor`
-        '''
+        """
         lons, lats = self._tree_lonlat(loc)
-        self.trees[f'{loc}_height'] = self._get_z(
-            lons, lats, self.chm, self.resolution)
-        self.trees[f'{loc}_elevation'] = self._get_z(
-            lons, lats, self.dtm, self.resolution)
+        self.trees[f"{loc}_height"] = self._get_z(lons, lats, self.chm, self.resolution)
+        self.trees[f"{loc}_elevation"] = self._get_z(
+            lons, lats, self.dtm, self.resolution
+        )
 
     def filter_chm(self, ws, ws_in_pixels=False, circular=False):
-        ''' Pre-process the canopy height model (smoothing and outlier removal).
+        """Pre-process the canopy height model (smoothing and outlier removal).
         The original CHM (self.chm0) is not overwritten, but a new one is
         stored (self.chm).
 
@@ -459,22 +471,32 @@ class PyCrown:
                         sets ws in pixel
         circular :      bool, optional
                         set to True for disc-shaped filter kernel, block otherwise
-        '''
+        """
         if not ws_in_pixels:
             if ws % self.resolution:
-                raise Exception("Image filter size not an integer number. Please check if image resolution matches filter size (in metre or pixel).")
+                raise Exception(
+                    "Image filter size not an integer number. Please check if image resolution matches filter size (in metre or pixel)."
+                )
             else:
                 ws = int(ws / self.resolution)
 
-        self.chm = self._smooth_raster(self.chm0, ws, self.resolution,
-                                       circular=circular)
-        self.chm0[np.isnan(self.chm0)] = 0.
-        zmask = (self.chm < 0.5) | np.isnan(self.chm) | (self.chm > 60.)
+        self.chm = self._smooth_raster(
+            self.chm0, ws, self.resolution, circular=circular
+        )
+        self.chm0[np.isnan(self.chm0)] = 0.0
+        zmask = (self.chm < 0.5) | np.isnan(self.chm) | (self.chm > 60.0)
         self.chm[zmask] = 0
 
-    def tree_detection(self, raster, resolution=None, ws=5, hmin=20,
-                       return_trees=False, ws_in_pixels=False):
-        ''' Detect individual trees from CHM raster based on a maximum filter.
+    def tree_detection(
+        self,
+        raster,
+        resolution=None,
+        ws=5,
+        hmin=20,
+        return_trees=False,
+        ws_in_pixels=False,
+    ):
+        """Detect individual trees from CHM raster based on a maximum filter.
         Identified trees are either stores as list in the tree dataframe or
         returned as ndarray.
 
@@ -499,7 +521,7 @@ class PyCrown:
         -------
         ndarray (optional)
             nx2 array of tree top pixel coordinates
-        '''
+        """
 
         if not isinstance(raster, np.ndarray):
             raise Exception("Please provide an input raster as numpy ndarray.")
@@ -508,7 +530,9 @@ class PyCrown:
 
         if not ws_in_pixels:
             if ws % resolution:
-                raise Exception("Image filter size not an integer number. Please check if image resolution matches filter size (in metre or pixel).")
+                raise Exception(
+                    "Image filter size not an integer number. Please check if image resolution matches filter size (in metre or pixel)."
+                )
             else:
                 ws = int(ws / resolution)
 
@@ -533,27 +557,36 @@ class PyCrown:
 
         # if canopy height is the same for multiple pixels,
         # place the tree top in the center of mass of the pixel bounds
-        yx = np.array(
+        yx = (
+            np.array(
                 ndimage.center_of_mass(
-                    raster, self.tree_markers, range(1, num_objects+1)
-                ), dtype=np.float32
-            ) + 0.5
+                    raster, self.tree_markers, range(1, num_objects + 1)
+                ),
+                dtype=np.float32,
+            )
+            + 0.5
+        )
         xy = np.array((yx[:, 1], yx[:, 0])).T
 
-        trees = [Point(*self._to_lonlat(xy[tidx, 0], xy[tidx, 1], resolution))
-                 for tidx in range(len(xy))]
+        trees = [
+            Point(*self._to_lonlat(xy[tidx, 0], xy[tidx, 1], resolution))
+            for tidx in range(len(xy))
+        ]
 
         if return_trees:
             return np.array(trees, dtype=object), xy
         else:
-            df = pd.DataFrame(np.array([trees, trees], dtype='object').T,
-                              dtype='object', columns=['top_cor', 'top'])
+            df = pd.DataFrame(
+                np.array([trees, trees], dtype="object").T,
+                dtype="object",
+                columns=["top_cor", "top"],
+            )
             self.trees = self.trees.append(df)
 
         self._check_empty()
 
-    def crown_delineation(self, algorithm, loc='top', **kwargs):
-        """ Function calling external crown delineation algorithms
+    def crown_delineation(self, algorithm, loc="top", **kwargs):
+        """Function calling external crown delineation algorithms
 
         Parameters
         ----------
@@ -577,65 +610,67 @@ class PyCrown:
         ndarray
             raster of individual tree crowns
         """
-        timeit = 'Tree crowns delineation: {:.3f}s'
+        timeit = "Tree crowns delineation: {:.3f}s"
 
         # get the tree seeds (starting points for crown delineation)
         seeds = self._tree_colrow(loc, self.resolution)
-        inraster = kwargs.get('inraster')
+        inraster = kwargs.get("inraster")
 
         if not isinstance(inraster, np.ndarray):
             inraster = self.chm
         else:
             inraster = inraster
 
-        if kwargs.get('max_crown'):
-            max_crown = kwargs['max_crown'] / self.resolution
+        if kwargs.get("max_crown"):
+            max_crown = kwargs["max_crown"] / self.resolution
 
-        if algorithm == 'dalponte_cython':
+        if algorithm == "dalponte_cython":
             tt = time.time()
             crowns = _crown_dalponte_cython._crown_dalponte(
-                inraster, seeds,
-                th_seed=float(kwargs['th_seed']),
-                th_crown=float(kwargs['th_crown']),
-                th_tree=float(kwargs['th_tree']),
-                max_crown=float(max_crown)
+                inraster,
+                seeds,
+                th_seed=float(kwargs["th_seed"]),
+                th_crown=float(kwargs["th_crown"]),
+                th_tree=float(kwargs["th_tree"]),
+                max_crown=float(max_crown),
             )
             print(timeit.format(time.time() - tt))
 
-        elif algorithm == 'dalponte_numba':
+        elif algorithm == "dalponte_numba":
             tt = time.time()
             crowns = _crown_dalponte_numba._crown_dalponte(
-                inraster, seeds,
-                th_seed=float(kwargs['th_seed']),
-                th_crown=float(kwargs['th_crown']),
-                th_tree=float(kwargs['th_tree']),
-                max_crown=float(max_crown)
+                inraster,
+                seeds,
+                th_seed=float(kwargs["th_seed"]),
+                th_crown=float(kwargs["th_crown"]),
+                th_tree=float(kwargs["th_tree"]),
+                max_crown=float(max_crown),
             )
             print(timeit.format(time.time() - tt))
 
-        elif algorithm == 'dalponteCIRC_numba':
+        elif algorithm == "dalponteCIRC_numba":
             tt = time.time()
             crowns = _crown_dalponteCIRC_numba._crown_dalponteCIRC(
-                inraster, seeds,
-                th_seed=float(kwargs['th_seed']),
-                th_crown=float(kwargs['th_crown']),
-                th_tree=float(kwargs['th_tree']),
-                max_crown=float(max_crown)
+                inraster,
+                seeds,
+                th_seed=float(kwargs["th_seed"]),
+                th_crown=float(kwargs["th_crown"]),
+                th_tree=float(kwargs["th_tree"]),
+                max_crown=float(max_crown),
             )
             print(timeit.format(time.time() - tt))
 
-        elif algorithm == 'watershed_skimage':
+        elif algorithm == "watershed_skimage":
             tt = time.time()
-            crowns = self._watershed(
-                inraster, th_tree=float(kwargs['th_tree'])
-            )
+            crowns = self._watershed(inraster, th_tree=float(kwargs["th_tree"]))
             print(timeit.format(time.time() - tt))
 
         self.crowns = np.array(crowns, dtype=np.int32)
 
-    def clip_trees_to_bbox(self, bbox=None, inbuf=None, f_tiles=None, row=None,
-                           col=None, loc='top'):
-        """ Clip tree tops and crowns to bounding box or tile extent.
+    def clip_trees_to_bbox(
+        self, bbox=None, inbuf=None, f_tiles=None, row=None, col=None, loc="top"
+    ):
+        """Clip tree tops and crowns to bounding box or tile extent.
         Tree dataframe is updated with subset of trees.
 
         Parameters
@@ -663,15 +698,15 @@ class PyCrown:
             lon_max = self.ul_lon + (self.chm.shape[1] * self.resolution) - inbuf
         elif f_tiles:
             # get the bounding box of each tile
-            with fiona.open(f_tiles, 'r') as tilepolys_layer:
+            with fiona.open(f_tiles, "r") as tilepolys_layer:
                 tiles = {}
                 for tile in tilepolys_layer:
-                    r = tile['properties']['Row']
-                    c = tile['properties']['Col']
-                    lon_min = tile['geometry']['coordinates'][0][0][0]
-                    lat_min = tile['geometry']['coordinates'][0][0][1]
-                    lon_max = tile['geometry']['coordinates'][0][2][0]
-                    lat_max = tile['geometry']['coordinates'][0][1][1]
+                    r = tile["properties"]["Row"]
+                    c = tile["properties"]["Col"]
+                    lon_min = tile["geometry"]["coordinates"][0][0][0]
+                    lat_min = tile["geometry"]["coordinates"][0][0][1]
+                    lon_max = tile["geometry"]["coordinates"][0][2][0]
+                    lat_max = tile["geometry"]["coordinates"][0][1][1]
                     tiles[r, c] = lon_min, lat_min, lon_max, lat_max
 
             # identify and clip tree tops inside tile
@@ -681,8 +716,10 @@ class PyCrown:
 
         tree_lons, tree_lats = self._tree_lonlat(loc)
         cond = (
-            (tree_lons >= lon_min) & (tree_lons < lon_max) &
-            (tree_lats >= lat_min) & (tree_lats < lat_max)
+            (tree_lons >= lon_min)
+            & (tree_lons < lon_max)
+            & (tree_lats >= lat_min)
+            & (tree_lats < lat_max)
         )
         self.trees = self.trees[cond]
 
@@ -690,7 +727,7 @@ class PyCrown:
             self._screen_crowns(cond)
 
     def correct_tree_tops(self, check_all=False):
-        """ Correct the location of tree tops in steep terrain.
+        """Correct the location of tree tops in steep terrain.
         Tree dataframe is updated with corrected tree top positions (`top_cor`).
 
         Parameters
@@ -700,12 +737,13 @@ class PyCrown:
                        whether they are located on steep terrain
         """
 
-        print(f'Number of trees: {len(self.trees)}')
+        print(f"Number of trees: {len(self.trees)}")
 
         # calculate center of mass of crowns
         comass = np.array(
-            ndimage.center_of_mass(self.crowns, self.crowns,
-                                   range(1, self.crowns.max() + 1))
+            ndimage.center_of_mass(
+                self.crowns, self.crowns, range(1, self.crowns.max() + 1)
+            )
         )
 
         corr_n = 0
@@ -714,8 +752,7 @@ class PyCrown:
 
         for tidx in range(len(self.trees)):
             tree = self.trees.iloc[tidx]
-            col, row = self._to_colrow(tree['top'].x, tree['top'].y,
-                                       self.resolution)
+            col, row = self._to_colrow(tree["top"].x, tree["top"].y, self.resolution)
             rcindices = np.where(self.crowns == tidx + 1)
             dtm_mean = np.nanmean(self.dtm[rcindices])
             dtm_std = np.nanstd(self.dtm[rcindices])
@@ -727,24 +764,20 @@ class PyCrown:
 
             # check if tree top too far down-slope compared to crown_mean
             if self.dtm[row, col] <= (dtm_mean - dtm_std) or check_all:
-
                 # find highest DSM location in crown
                 midx = np.where(self.dsm[rcindices] == dsm_max)[0][0]
-                dsmhigh = np.array((rcindices[0][midx] + 0.5,
-                                    rcindices[1][midx] + 0.5))
+                dsmhigh = np.array((rcindices[0][midx] + 0.5, rcindices[1][midx] + 0.5))
 
                 # calculate map distances
-                distances = cdist(np.stack(rcindices, axis=1),
-                                  comass[tidx][np.newaxis])
-                dist_dh_com = cdist(dsmhigh[np.newaxis],
-                                    comass[tidx][np.newaxis])
+                distances = cdist(np.stack(rcindices, axis=1), comass[tidx][np.newaxis])
+                dist_dh_com = cdist(dsmhigh[np.newaxis], comass[tidx][np.newaxis])
 
                 # assign high point position from DSM if new location is not
                 # too far from centre of mass of the crown, in the latter case
                 # place the tree top at the centre of mass
                 corr_n += 1
 
-                if dist_dh_com <= (1. * np.nanmean(distances)):
+                if dist_dh_com <= (1.0 * np.nanmean(distances)):
                     cor_col, cor_row = dsmhigh[1], dsmhigh[0]
                     corr_dsm += 1
                     self.trees.tt_corrected.iloc[tidx] = 1
@@ -754,21 +787,22 @@ class PyCrown:
                     self.trees.tt_corrected.iloc[tidx] = 2
 
                 # Set new tree top height
-                self.trees.top_cor.iloc[tidx] = \
-                    Point(*self._to_lonlat(cor_col, cor_row, self.resolution))
+                self.trees.top_cor.iloc[tidx] = Point(
+                    *self._to_lonlat(cor_col, cor_row, self.resolution)
+                )
 
             else:
                 self.trees.tt_corrected.iloc[tidx] = 0
 
-        print(f'Tree tops corrected: {corr_n}')
+        print(f"Tree tops corrected: {corr_n}")
         if len(self.trees) > 0:
-            print(f'Tree tops corrected: {100 * corr_n / len(self.trees)}%')
-            print(f'DSM correction: {corr_dsm}')
-            print(f'COM correction: {corr_com}')
+            print(f"Tree tops corrected: {100 * corr_n / len(self.trees)}%")
+            print(f"DSM correction: {corr_dsm}")
+            print(f"COM correction: {corr_com}")
         return corr_dsm, corr_com
 
-    def screen_small_trees(self, hmin=20., loc='top'):
-        """ Remove small trees from index based on minimum threshold.
+    def screen_small_trees(self, hmin=20.0, loc="top"):
+        """Remove small trees from index based on minimum threshold.
         Tree dataframe and crowns raster is updated.
 
         Parameters
@@ -778,7 +812,7 @@ class PyCrown:
         loc :     str, optional
                   tree seed position: `top` or `top_cor`
         """
-        cond = self.trees[f'{loc}_height'] >= hmin
+        cond = self.trees[f"{loc}_height"] >= hmin
         self.trees = self.trees[cond]
 
         if isinstance(self.crowns, np.ndarray):
@@ -787,14 +821,13 @@ class PyCrown:
         self._check_empty()
 
     def crowns_to_polys_raster(self):
-        ''' Converts tree crown raster to individual polygons and stores them
+        """Converts tree crown raster to individual polygons and stores them
         in the tree dataframe
-        '''
+        """
         polys = []
         for feature in rioshapes(self.crowns, mask=self.crowns.astype(bool)):
-
             # Convert pixel coordinates to lon/lat
-            edges = feature[0]['coordinates'][0].copy()
+            edges = feature[0]["coordinates"][0].copy()
             for i in range(len(edges)):
                 edges[i] = self._to_lonlat(*edges[i], self.resolution)
 
@@ -802,9 +835,8 @@ class PyCrown:
             polys.append(Polygon(edges))
         self.trees.crown_poly_raster = polys
 
-    def crowns_to_polys_smooth(self, store_las=True, thin_perc=None,
-                               first_return=True):
-        """ Smooth crown polygons using Dalponte & Coomes (2016) approach:
+    def crowns_to_polys_smooth(self, store_las=True, thin_perc=None, first_return=True):
+        """Smooth crown polygons using Dalponte & Coomes (2016) approach:
         Builds a convex hull around first return points (which lie within the
         rasterized crowns).
         Optionally, the trees in the LiDAR point cloud are classified based on
@@ -829,51 +861,48 @@ class PyCrown:
         else:
             lidar_geodf = self.las
 
-        print('Converting LAS point cloud to shapely points')
+        print("Converting LAS point cloud to shapely points")
         geometry = [Point(xy) for xy in zip(lidar_geodf.x, lidar_geodf.y)]
-        lidar_geodf = gpd.GeoDataFrame(lidar_geodf, crs=f'epsg:{self.epsg}',
-                                       geometry=geometry)
+        lidar_geodf = gpd.GeoDataFrame(
+            lidar_geodf, crs=f"epsg:{self.epsg}", geometry=geometry
+        )
 
-        print('Converting raster crowns to shapely polygons')
+        print("Converting raster crowns to shapely polygons")
         polys = []
         for feature in rioshapes(self.crowns, mask=self.crowns.astype(bool)):
-            edges = np.array(list(zip(*feature[0]['coordinates'][0])))
-            edges = np.array(self._to_lonlat(edges[0], edges[1],
-                                             self.resolution)).T
+            edges = np.array(list(zip(*feature[0]["coordinates"][0])))
+            edges = np.array(self._to_lonlat(edges[0], edges[1], self.resolution)).T
             polys.append(Polygon(edges))
         crown_geodf = gpd.GeoDataFrame(
             pd.DataFrame(np.arange(len(self.trees))),
-            crs=f'epsg:{self.epsg}', geometry=polys
+            crs=f"epsg:{self.epsg}",
+            geometry=polys,
         )
 
-        print('Attach LiDAR points to corresponding crowns')
-        lidar_in_crowns = gpd.sjoin(lidar_geodf, crown_geodf,
-                                    op='within', how="inner")
+        print("Attach LiDAR points to corresponding crowns")
+        lidar_in_crowns = gpd.sjoin(lidar_geodf, crown_geodf, op="within", how="inner")
 
-        lidar_tree_class = np.zeros(lidar_in_crowns['index_right'].size)
-        lidar_tree_mask = np.zeros(lidar_in_crowns['index_right'].size,
-                                   dtype=bool)
+        lidar_tree_class = np.zeros(lidar_in_crowns["index_right"].size)
+        lidar_tree_mask = np.zeros(lidar_in_crowns["index_right"].size, dtype=bool)
 
-        print('Create convex hull around first return points')
+        print("Create convex hull around first return points")
         polys = []
         for tidx in range(len(self.trees)):
-            bool_indices = lidar_in_crowns['index_right'] == tidx
+            bool_indices = lidar_in_crowns["index_right"] == tidx
             lidar_tree_class[bool_indices] = tidx
             points = lidar_in_crowns[bool_indices]
             # check that not all values are the same
-            if len(points.z) > 1 and not np.allclose(points.z,
-                                                     points.iloc[0].z):
+            if len(points.z) > 1 and not np.allclose(points.z, points.iloc[0].z):
                 points = points[points.z >= threshold_otsu(points.z)]
                 if first_return:
                     points = points[points.return_num == 1]  # first returns
             hull = points.unary_union.convex_hull
             polys.append(hull)
-            lidar_tree_mask[bool_indices] = \
-                lidar_in_crowns[bool_indices].within(hull)
+            lidar_tree_mask[bool_indices] = lidar_in_crowns[bool_indices].within(hull)
         self.trees.crown_poly_smooth = polys
 
         if store_las:
-            print('Classifying point cloud')
+            print("Classifying point cloud")
             lidar_in_crowns = lidar_in_crowns[lidar_tree_mask]
             lidar_tree_class = lidar_tree_class[lidar_tree_mask]
             header = laspy.header.Header()
@@ -895,7 +924,7 @@ class PyCrown:
         self.lidar_in_crowns = lidar_in_crowns
 
     def quality_control(self, all_good=False):
-        """ Remove trees from tree dataframe with missing DTM/DSM data &
+        """Remove trees from tree dataframe with missing DTM/DSM data &
         crowns that are not polygons
 
         Parameters
@@ -906,49 +935,49 @@ class PyCrown:
         if all_good:
             self.trees.tt_corrected = np.zeros(len(self.trees), dtype=int)
         else:
-            cond = (
-                (self.trees.tt_corrected >= 0) &
-                self.trees.crown_poly_raster.apply(
-                    lambda x: isinstance(x, Polygon))
+            cond = (self.trees.tt_corrected >= 0) & self.trees.crown_poly_raster.apply(
+                lambda x: isinstance(x, Polygon)
             )
             self.trees = self.trees[cond]
 
         self._check_empty()
 
-    def export_tree_locations(self, loc='top'):
-        """ Convert tree top raster indices to georeferenced 3D point shapefile
+    def export_tree_locations(self, loc="top"):
+        """Convert tree top raster indices to georeferenced 3D point shapefile
 
         Parameters
         ----------
         loc :     str, optional
                   tree seed position: `top` or `top_cor`
         """
-        outfile = self.outpath / f'tree_location_{loc}.shp'
+        outfile = self.outpath / f"tree_location_{loc}.shp"
         outfile.parent.mkdir(parents=True, exist_ok=True)
 
         if outfile.exists():
             outfile.unlink()
 
         schema = {
-            'geometry': '3D Point',
-            'properties': {'DN': 'int', 'TH': 'float', 'COR': 'int'}
+            "geometry": "3D Point",
+            "properties": {"DN": "int", "TH": "float", "COR": "int"},
         }
         with fiona.collection(
-            str(outfile), 'w', 'ESRI Shapefile', schema, crs=self.srs
+            str(outfile), "w", "ESRI Shapefile", schema, crs=self.srs
         ) as output:
             for tidx in range(len(self.trees)):
                 feat = {}
                 tree = self.trees.iloc[tidx]
-                feat['geometry'] = mapping(
-                    Point(tree[loc].x, tree[loc].y, tree[f'{loc}_elevation'])
+                feat["geometry"] = mapping(
+                    Point(tree[loc].x, tree[loc].y, tree[f"{loc}_elevation"])
                 )
-                feat['properties'] = {'DN': tidx,
-                                      'TH': float(tree[f'{loc}_height']),
-                                      'COR': int(tree.tt_corrected)}
+                feat["properties"] = {
+                    "DN": tidx,
+                    "TH": float(tree[f"{loc}_height"]),
+                    "COR": int(tree.tt_corrected),
+                }
                 output.write(feat)
 
-    def export_tree_crowns(self, crowntype='crown_poly_smooth'):
-        """ Convert tree crown raster to georeferenced polygon shapefile
+    def export_tree_crowns(self, crowntype="crown_poly_smooth"):
+        """Convert tree crown raster to georeferenced polygon shapefile
 
         Parameters
         ----------
@@ -956,33 +985,32 @@ class PyCrown:
                       choose whether the raster of smoothed version should be
                       exported: `crown_poly_smooth` or `crown_poly_raster`
         """
-        outfile = self.outpath / f'tree_{crowntype}.shp'
+        outfile = self.outpath / f"tree_{crowntype}.shp"
         outfile.parent.mkdir(parents=True, exist_ok=True)
 
         if outfile.exists():
             outfile.unlink()
 
         schema = {
-            'geometry': 'Polygon',
-            'properties': {'DN': 'int', 'TTH': 'float', 'TCH': 'float'}
+            "geometry": "Polygon",
+            "properties": {"DN": "int", "TTH": "float", "TCH": "float"},
         }
         with fiona.collection(
-            str(outfile), 'w', 'ESRI Shapefile',
-            schema, crs=self.srs
+            str(outfile), "w", "ESRI Shapefile", schema, crs=self.srs
         ) as output:
             for tidx in range(len(self.trees)):
                 feat = {}
                 tree = self.trees.iloc[tidx]
-                feat['geometry'] = mapping(tree[crowntype])
-                feat['properties'] = {
-                    'DN': tidx,
-                    'TTH': float(tree.top_height),
-                    'TCH': float(tree.top_cor_height)
+                feat["geometry"] = mapping(tree[crowntype])
+                feat["properties"] = {
+                    "DN": tidx,
+                    "TTH": float(tree.top_height),
+                    "TCH": float(tree.top_cor_height),
                 }
                 output.write(feat)
 
     def export_raster(self, raster, fname, title, res=None):
-        """ Write array to raster file with gdal
+        """Write array to raster file with gdal
 
         Parameters
         ----------
@@ -1000,20 +1028,16 @@ class PyCrown:
 
         fname.parent.mkdir(parents=True, exist_ok=True)
 
-        driver = gdal.GetDriverByName('GTIFF')
+        driver = gdal.GetDriverByName("GTIFF")
         y_pixels, x_pixels = raster.shape
-        gdal_file = driver.Create(
-            f'{fname}', x_pixels, y_pixels, 1, gdal.GDT_Float32
-        )
-        gdal_file.SetGeoTransform(
-            (self.ul_lon, res, 0., self.ul_lat, 0., -res)
-        )
+        gdal_file = driver.Create(f"{fname}", x_pixels, y_pixels, 1, gdal.GDT_Float32)
+        gdal_file.SetGeoTransform((self.ul_lon, res, 0.0, self.ul_lat, 0.0, -res))
         dataset_srs = gdal.osr.SpatialReference()
         dataset_srs.ImportFromEPSG(self.epsg)
         gdal_file.SetProjection(dataset_srs.ExportToWkt())
         band = gdal_file.GetRasterBand(1)
         band.SetDescription(title)
-        band.SetNoDataValue(0.)
+        band.SetNoDataValue(0.0)
         band.WriteArray(raster)
         gdal_file.FlushCache()
         gdal_file = None
