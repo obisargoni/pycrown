@@ -198,14 +198,13 @@ class PyCrown:
         fname :   str
                   Path to LiDAR dataset (.las or .laz-file)
         """
-        las = laspy.file.File(str(fname), mode='r')
-        lidar_points = np.array((
-            las.x, las.y, las.z, las.intensity, las.return_num,
-            las.classification
-        )).transpose()
-        colnames = ['x', 'y', 'z', 'intensity', 'return_num', 'classification']
+        las = laspy.read(str(fname))
+        print(str(fname))
+        lidar_points = np.array(
+            (las.x, las.y, las.z, las.intensity, las.return_num, las.classification)
+        ).transpose()
+        colnames = ["x", "y", "z", "intensity", "return_num", "classification"]
         self.las = pd.DataFrame(lidar_points, columns=colnames)
-        las.close()
 
     def _check_empty(self):
         """Helper function raising an Exception if no trees present
@@ -905,11 +904,9 @@ class PyCrown:
             print("Classifying point cloud")
             lidar_in_crowns = lidar_in_crowns[lidar_tree_mask]
             lidar_tree_class = lidar_tree_class[lidar_tree_mask]
-            header = laspy.header.Header()
+            header = laspy.LasHeader(point_format=0, version="1.2")
             self.outpath.mkdir(parents=True, exist_ok=True)
-            outfile = laspy.file.File(
-                self.outpath / "trees.las", mode="w", header=header
-            )
+            outfile = laspy.open(self.outpath / "trees.las", mode="w", header=header)
             xmin = np.floor(np.min(lidar_in_crowns.x))
             ymin = np.floor(np.min(lidar_in_crowns.y))
             zmin = np.floor(np.min(lidar_in_crowns.z))
