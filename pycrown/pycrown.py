@@ -26,8 +26,8 @@ from skimage.filters import threshold_otsu
 
 # from skimage.feature import peak_local_max
 
-import gdal
-import osr
+from osgeo import gdal
+from osgeo import osr
 
 from shapely.geometry import mapping, Point, Polygon
 
