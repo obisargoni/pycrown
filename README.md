@@ -10,7 +10,7 @@ Published under GNU GPLv3
 
 # Updates made on this fork
 
-This fork of pycrown updates the packs to run with the most recent versions of pandas, scipy, and geopandas. See the requirements.txt file for more information. To summarise, the python setup.py test completes with the following:
+This fork of pycrown updates the package to run with the most recent versions of pandas, scipy, and geopandas. See the requirements.txt file for more information. To summarise, the python setup.py test completes with the following:
 
 Python 3.10.10
 
