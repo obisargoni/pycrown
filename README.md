@@ -18,7 +18,7 @@ Python 3.10.10
 * numpy           1.23.5
 * pandas          1.5.3
 * geopandas       0.12.2
-* GDAL            3.6.3
+* GDAL            3.4.3
 * rasterio        1.3.6
 
 # Summary
