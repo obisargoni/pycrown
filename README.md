@@ -1,11 +1,25 @@
 [![manaakiwhenua-standards](https://github.com/manaakiwhenua/pycrown/workflows/manaakiwhenua-standards/badge.svg)](https://github.com/manaakiwhenua/manaakiwhenua-standards)
 
 
+
+
 # PyCrown - Fast raster-based individual tree segmentation for LiDAR data
 Author: Dr Jan Schindler (formerly Zörner) (<mailto:schindlerj@landcareresearch.co.nz>)
 
 Published under GNU GPLv3
 
+# Updates made on this fork
+
+This fork of pycrown updates the package to run with the most recent versions of pandas, scipy, and geopandas. See the requirements.txt file for more information. To summarise, the python setup.py test completes with the following:
+
+Python 3.10.10
+
+* laspy           2.4.1
+* numpy           1.23.5
+* pandas          1.5.3
+* geopandas       0.12.2
+* GDAL            3.6.3
+* rasterio        1.3.6
 
 # Summary
 PyCrown is a Python package for identifying tree top positions in a canopy height model (CHM) and delineating individual tree crowns.
